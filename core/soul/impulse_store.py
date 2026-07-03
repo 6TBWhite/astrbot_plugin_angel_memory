@@ -186,6 +186,9 @@ class ImpulseStore:
     def get_rejected_context_text(self) -> str:
         """生成供自省 prompt 使用的被拒提案参考文本"""
         active = self.get_active_rejected()
+        self.logger.info(
+            f"[缓冲区] get_rejected_context_text 调用 _rejected总={len(self._rejected_confessions)} 活跃={len(active)}"
+        )
         if not active:
             return ""
         lines = ["最近被拒绝的提案（可作为参考，避免重复提议）："]
