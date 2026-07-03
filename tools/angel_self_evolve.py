@@ -136,11 +136,6 @@ class AngelSelfEvolveTool(FunctionTool):
     @staticmethod
     def _is_admin_context(event) -> bool:
         try:
-            event_type = getattr(event, "event_type", "")
-            if event_type and "friend" in str(event_type).lower():
-                return True
-            if event_type and "private" in str(event_type).lower():
-                return True
+            return bool(event.is_admin())
         except Exception:
-            pass
-        return False
+            return False

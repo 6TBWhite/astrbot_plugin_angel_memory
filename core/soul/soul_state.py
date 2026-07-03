@@ -322,17 +322,26 @@ class SoulState:
 
     def get_state_description(self) -> str:
         """获取当前状态的文本描述（用于调试或Prompt注入）"""
-        with self._lock:
-            v_recall = self.get_value('RecallDepth')
-            v_impress = self.get_value('ImpressionDepth')
-            v_express = self.get_value('ExpressionDesire')
-            v_create = self.get_value('Creativity')
-
         desc = []
-        desc.append(f"🧠 回忆倾向: {v_recall}条")
-        desc.append(f"📝 记住倾向: {v_impress}条")
-        desc.append(f"🗣️ 表达欲望: {v_express:.2f}")
-        desc.append(f"🎨 思维发散: {v_create:.2f}")
+        expr_desc = self.get_semantic_description("ExpressionDesire")
+        if expr_desc:
+            desc.append(f"表达欲: {expr_desc}")
+        crea_desc = self.get_semantic_description("Creativity")
+        if crea_desc:
+            desc.append(f"思维: {crea_desc}")
+        recall_desc = self.get_semantic_description("RecallDepth")
+        if recall_desc:
+            desc.append(f"回忆: {recall_desc}")
+        impress_desc = self.get_semantic_description("ImpressionDepth")
+        if impress_desc:
+            desc.append(f"记住: {impress_desc}")
+        if not desc:
+            with self._lock:
+                v_recall = self.get_value('RecallDepth')
+                v_impress = self.get_value('ImpressionDepth')
+                v_express = self.get_value('ExpressionDesire')
+                v_create = self.get_value('Creativity')
+            return f"🧠 回忆倾向: {v_recall}条 | 📝 记住倾向: {v_impress}条 | 🗣️ 表达欲望: {v_express:.2f} | 🎨 思维发散: {v_create:.2f}"
         return " | ".join(desc)
 
     # ---- 语义档位映射表 ----
