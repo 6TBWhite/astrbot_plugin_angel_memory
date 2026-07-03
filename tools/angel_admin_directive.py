@@ -79,20 +79,26 @@ class AngelAdminDirectiveTool(FunctionTool):
             self.logger.warning(f"非管理员用户尝试调用 {self.name}")
             return "权限不足：此工具仅供管理员使用。"
 
+        resolved_id = target_user
+        if target_type in ("strategy", "profile") and target_user:
+            resolved_id = self._resolve_user_id(plugin_context, target_user)
+            if resolved_id != target_user:
+                self.logger.info(f"{self.name}: target_user={target_user} → resolved_id={resolved_id}")
+
         try:
             if target_type == "strategy":
                 store = plugin_context.get_component("strategy_store")
                 if not store:
                     return "错误：策略卡存储不可用。"
                 store.set_strategy(
-                    user_id=target_user,
+                    user_id=resolved_id,
                     strategy=content,
                     source=f"管理员指令 | {datetime.now().strftime('%Y-%m-%d')}",
                 )
                 self.logger.info(
-                    f"{self.name}: 已更新策略 target_user={target_user} content=「{content[:30]}」"
+                    f"{self.name}: 已更新策略 target_user={resolved_id} content=「{content[:30]}」"
                 )
-                return f"已更新对 {target_user} 的相处策略：「{content}」"
+                return f"已更新对 {resolved_id} 的相处策略：「{content}」"
 
             elif target_type == "profile":
                 memory_runtime = plugin_context.get_component("memory_runtime")
@@ -138,3 +144,20 @@ class AngelAdminDirectiveTool(FunctionTool):
             return bool(event.is_admin())
         except Exception:
             return False
+
+    @staticmethod
+    def _resolve_user_id(plugin_context, target_name: str) -> str:
+        """将昵称/用户名映射到实际 user_id，如无法解析则返回原名。"""
+        deepmind = plugin_context.get_component("deepmind")
+        if not deepmind or not hasattr(deepmind, "user_profile_service"):
+            return target_name
+        profile_service = deepmind.user_profile_service
+        for session_id, name_map in profile_service._session_user_names.items():
+            for uid, nickname in name_map.items():
+                if nickname and nickname.lower() == target_name.lower():
+                    return uid
+        for session_id, name_map in profile_service._session_user_names.items():
+            for uid, nickname in name_map.items():
+                if nickname and target_name.lower() in nickname.lower():
+                    return uid
+        return target_name
