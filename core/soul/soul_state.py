@@ -321,58 +321,43 @@ class SoulState:
             return self.energy.copy()
 
     def get_state_description(self) -> str:
-        """获取当前状态的文本描述（用于调试或Prompt注入）"""
-        desc = []
-        expr_desc = self.get_semantic_description("ExpressionDesire")
-        if expr_desc:
-            desc.append(f"表达欲: {expr_desc}")
-        crea_desc = self.get_semantic_description("Creativity")
-        if crea_desc:
-            desc.append(f"思维: {crea_desc}")
-        recall_desc = self.get_semantic_description("RecallDepth")
-        if recall_desc:
-            desc.append(f"回忆: {recall_desc}")
-        impress_desc = self.get_semantic_description("ImpressionDepth")
-        if impress_desc:
-            desc.append(f"记住: {impress_desc}")
-        if not desc:
-            with self._lock:
-                v_recall = self.get_value('RecallDepth')
-                v_impress = self.get_value('ImpressionDepth')
-                v_express = self.get_value('ExpressionDesire')
-                v_create = self.get_value('Creativity')
-            return f"🧠 回忆倾向: {v_recall}条 | 📝 记住倾向: {v_impress}条 | 🗣️ 表达欲望: {v_express:.2f} | 🎨 思维发散: {v_create:.2f}"
-        return " | ".join(desc)
+        """获取当前状态的文本描述（日志用数字格式）"""
+        with self._lock:
+            v_recall = self.get_value('RecallDepth')
+            v_impress = self.get_value('ImpressionDepth')
+            v_express = self.get_value('ExpressionDesire')
+            v_create = self.get_value('Creativity')
+        return f"回忆:{v_recall} | 记住:{v_impress} | 表达欲:{v_express:.2f} | 思维:{v_create:.2f}"
 
     # ---- 语义档位映射表 ----
 
     EXPRESSION_DESIRE_TIERS = [
-        (0.0, 0.2, "沉默", "几乎不想开口，每句话都要斟酌很久才说，能不说就不说"),
-        (0.2, 0.4, "低语", "话不多，被问才答，语气平淡，不会主动展开话题"),
-        (0.4, 0.6, "自然", "正常接话，该说就说，不冷不热"),
-        (0.6, 0.8, "活跃", "话匣子打开了，会主动抛话题，回复变长"),
-        (0.8, 1.0, "倾泻", "滔滔不绝，想到什么说什么，根本停不下来"),
+        (0.0, 0.2, "沉默", "几乎不想开口，能不说的就不说"),
+        (0.2, 0.4, "低语", "话不多，被问才答，语气平淡"),
+        (0.4, 0.6, "自然", "正常接话，该说就说"),
+        (0.6, 0.8, "活跃", "会主动抛话题，回复变长"),
+        (0.8, 1.0, "倾泻", "滔滔不绝，根本停不下来"),
     ]
 
     CREATIVITY_TIERS = [
-        (0.0, 0.2, "刻板", "只会就事论事，思维完全收敛在当前话题上"),
-        (0.2, 0.4, "务实", "偶尔联想但很快拉回来，偏好确定性的回答"),
-        (0.4, 0.6, "灵活", "能自然地延伸话题，在发散和收敛之间切换"),
-        (0.6, 0.8, "跳跃", "联想丰富，话题容易跑远，偶尔冒出意想不到的角度"),
-        (0.8, 1.0, "天马行空", "思维完全发散，一个话题能拉出五个方向"),
+        (0.0, 0.2, "刻板", "就事论事，不绕弯子"),
+        (0.2, 0.4, "务实", "偶尔联想但很快拉回来"),
+        (0.4, 0.6, "灵活", "自然延伸话题，收放自如"),
+        (0.6, 0.8, "跳跃", "联想丰富，话题容易跑远"),
+        (0.8, 1.0, "天马行空", "一个话题能拉出五个方向"),
     ]
 
     RECALL_DEPTH_TIERS = [
-        (1, 4, "淡忘", "只捞最相关的几条记忆，聊天时很少提起过去"),
-        (5, 8, "留心", "会关联一些相关记忆，偶尔提起过去的事"),
-        (9, 13, "追溯", "积极回忆，会把很多过去的事串联起来"),
-        (14, 20, "沉浸", "深度挖掘记忆，几乎把所有相关记忆都翻出来"),
+        (1, 4, "淡忘", "只捞最相关的几条"),
+        (5, 8, "留心", "偶尔提起过去的事"),
+        (9, 13, "追溯", "积极回忆，串联过去"),
+        (14, 20, "沉浸", "深度挖掘记忆"),
     ]
 
     IMPRESSION_DEPTH_TIERS = [
-        (1, 3, "粗心", "只记住最重要的事，细节大多忽略"),
-        (4, 6, "留意", "会记住关键事件和一些有趣的细节"),
-        (7, 10, "铭刻", "对话中的大量细节都会被记住"),
+        (1, 3, "粗心", "只记住最重要的事"),
+        (4, 6, "留意", "记住关键事件和有趣的细节"),
+        (7, 10, "铭刻", "大量细节都被记住"),
     ]
 
     @staticmethod
