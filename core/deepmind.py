@@ -1137,6 +1137,7 @@ class DeepMind:
                 for p in pending[:10]
             )
             belief_text = "\n".join(f"- {b.get('content', '')}" for b in beliefs[:5])
+            rejected_text = impulse_store.get_rejected_context_text()
 
             prompt = (
                 "你现在对自己的核心信念进行自省。\n"
@@ -1144,6 +1145,10 @@ class DeepMind:
                 f"{impulse_text}\n\n"
                 "你当前的核心信念：\n"
                 f"{belief_text}\n\n"
+            )
+            if rejected_text:
+                prompt += f"{rejected_text}\n\n"
+            prompt += (
                 "请分析是否需要调整你的核心信念，输出 JSON：\n"
                 '{"proposal": "自白提案", "reasoning": "分析推理", '
                 '"confidence": 0.72, "suggested_belief_text": "建议的新信念文本"}\n'

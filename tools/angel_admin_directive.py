@@ -141,9 +141,24 @@ class AngelAdminDirectiveTool(FunctionTool):
     @staticmethod
     def _is_admin(event) -> bool:
         try:
-            return bool(event.is_admin())
+            if bool(event.is_admin()):
+                return True
         except Exception:
-            return False
+            pass
+        try:
+            sender_id = str(event.get_sender_id() or "").strip()
+            plugin_ctx = getattr(event, "plugin_context", None)
+            if plugin_ctx and sender_id:
+                astrbot_ctx = plugin_ctx.get_astrbot_context()
+                if astrbot_ctx:
+                    global_cfg = astrbot_ctx.get_config()
+                    if isinstance(global_cfg, dict):
+                        for admin_id in global_cfg.get("admins_id", []) or []:
+                            if str(admin_id).strip() == sender_id:
+                                return True
+        except Exception:
+            pass
+        return False
 
     @staticmethod
     def _resolve_user_id(plugin_context, target_name: str) -> str:

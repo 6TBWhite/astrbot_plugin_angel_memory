@@ -90,11 +90,12 @@ class BeliefAPI:
     async def list_impulses(self):
         store = self.plugin_context.get_component("impulse_store")
         if not store:
-            return jsonify({"impulses": [], "confessions": [], "total_weight": 0, "threshold": 0})
+            return jsonify({"impulses": [], "confessions": [], "rejected": [], "total_weight": 0, "threshold": 0})
 
         return jsonify({
             "impulses": store.get_pending_impulses(),
             "confessions": store.get_pending_confessions(),
+            "rejected": store.get_active_rejected(),
             "total_weight": store.get_pending_total_weight(),
             "threshold": store._threshold,
         })

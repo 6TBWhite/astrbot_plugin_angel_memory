@@ -118,6 +118,23 @@
           </v-list>
         </v-card-text>
       </v-card>
+
+      <v-card v-if="rejected.length" class="mb-4">
+        <v-card-title>被拒缓冲区（{{ rejected.length }}，30天自动清理）</v-card-title>
+        <v-card-text>
+          <v-list lines="two">
+            <v-list-item v-for="r in rejected" :key="r.id">
+              <template #prepend><v-icon color="grey">mdi-archive</v-icon></template>
+              <v-list-item-title>{{ r.proposal }}</v-list-item-title>
+              <v-list-item-subtitle>
+                确信度 {{ r.confidence }}
+                <span v-if="r.dismissed_at"> | 被拒: {{ formatTime(r.dismissed_at) }}</span>
+                <span v-if="r.expires_at"> | 过期: {{ formatTime(r.expires_at) }}</span>
+              </v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+      </v-card>
     </template>
   </div>
 </template>
@@ -139,6 +156,7 @@ const formContent = ref('')
 
 const impulses = ref<any[]>([])
 const confessions = ref<any[]>([])
+const rejected = ref<any[]>([])
 const impulseTotalWeight = ref(0)
 const impulseThreshold = ref(3.0)
 const testing = ref(false)
@@ -159,6 +177,7 @@ async function loadImpulses() {
     const data: any = await apiGet('impulses')
     impulses.value = data.impulses || []
     confessions.value = data.confessions || []
+    rejected.value = data.rejected || []
     impulseTotalWeight.value = data.total_weight || 0
     impulseThreshold.value = data.threshold || 3.0
   } catch (e) {
