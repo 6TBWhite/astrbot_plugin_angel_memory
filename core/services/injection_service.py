@@ -146,12 +146,15 @@ class DeepMindInjectionService:
             )
 
         strategy_store = deepmind.plugin_context.get_component("strategy_store")
-        if strategy_store and user_profile_context:
+        if strategy_store:
             strategy_lines = self._build_strategy_context(
                 deepmind.user_profile_service, session_id, strategy_store
             )
             if strategy_lines:
-                user_profile_context += strategy_lines
+                if user_profile_context:
+                    user_profile_context += strategy_lines
+                else:
+                    user_profile_context = strategy_lines
 
         if user_profile_context:
             system_context_parts.append(
