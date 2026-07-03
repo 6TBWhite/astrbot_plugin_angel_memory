@@ -106,7 +106,7 @@ class AngelMemoryPlugin(Star):
             soul_config = self.plugin_context.get_config("enable_soul_system", {}) or {}
             if soul_config.get("enabled", True):
                 from .core.soul.belief_store import BeliefStore
-                self.belief_store = BeliefStore(max_beliefs=20)
+                self.belief_store = BeliefStore(max_beliefs=20, data_dir=data_dir)
                 self.plugin_context.register_component("belief_store", self.belief_store)
                 self.logger.info("核心信念存储已初始化")
         except Exception as e:
@@ -114,7 +114,7 @@ class AngelMemoryPlugin(Star):
 
         try:
             from .core.soul.strategy_store import StrategyStore
-            self.strategy_store = StrategyStore()
+            self.strategy_store = StrategyStore(data_dir=data_dir)
             self.plugin_context.register_component("strategy_store", self.strategy_store)
             self.logger.info("策略卡存储已初始化")
         except Exception as e:
