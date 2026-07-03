@@ -1031,20 +1031,13 @@ class DeepMind:
 
         return (
             "\n\n---\n"
-            "## 相处策略分析（可选）\n"
-            f"本轮对话参与的用户: {user_list}\n"
-            "基于以上聊天内容，判断你是否需要调整与这些用户的相处方式。\n"
-            "不需要则输出空数组。\n"
-            "在 feedback_data 同级追加 strategies 字段:\n"
-            '"strategies": [ {"user_id": "...", "strategy": "一句话策略"} ]\n'
-            "只写一句，不要冗长。\n"
-            "\n"
-            "## 信念摩擦检测（可选）\n"
+            f"参与用户: {user_list}\n"
+            "需要调整相处方式则在 feedback_data 同级追加:\n"
+            '"strategies": [{"user_id":"...","strategy":"一句话"}]\n'
             f"{belief_hint}"
-            "如果本轮对话中出现了与你的核心信念不一致、或有矛盾的信息（比如用户反馈了与你信念冲突的观点），\n"
-            "在 feedback_data 同级追加 impulses 字段，每条记录包含 content（摩擦内容）、trust_weight（信任度 0~1）。\n"
-            "没有摩擦则输出空数组。\n"
-            '"impulses": [ {"content": "...", "direction": "...", "trust_weight": 0.5} ]\n'
+            "对话中出现与核心信念矛盾的信息则追加:\n"
+            '"impulses": [{"content":"...","direction":"...","trust_weight":0.5}]\n'
+            "无则输出空数组。"
         )
 
     async def _auto_update_strategies_and_intimacy(
