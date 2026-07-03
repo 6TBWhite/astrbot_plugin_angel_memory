@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="text-h5 mb-4">核心信念 & 自省</h2>
+    <h2 class="text-h5 mb-4">💗 核心信念 & 自省</h2>
 
     <v-tabs v-model="tab" class="mb-4">
       <v-tab value="beliefs">核心信念</v-tab>
