@@ -197,6 +197,16 @@ class DeepMindInjectionService:
     def _build_strategy_context(profile_service, session_id: str, strategy_store) -> str:
         user_ids = profile_service._session_user_ids.get(str(session_id or "").strip(), [])
         user_names = profile_service._session_user_names.get(str(session_id or "").strip(), {})
+
+        if not user_ids and strategy_store:
+            all_strategies = strategy_store.get_all_strategies()
+            if all_strategies:
+                session_id_str = str(session_id or "")
+                for stored_key in all_strategies:
+                    if stored_key in session_id_str or session_id_str.endswith(stored_key):
+                        user_ids.append(stored_key)
+                        break
+
         parts = []
         for user_id in user_ids:
             strategy = strategy_store.get_strategy(user_id)
