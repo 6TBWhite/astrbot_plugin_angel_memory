@@ -199,6 +199,7 @@ class ProfileAPI:
     async def get_strategy(self):
         user_id = request.args.get("user_id", "").strip()
         nickname = request.args.get("nickname", "").strip()
+        scope = request.args.get("scope", "public").strip()
         if not user_id:
             return jsonify({"error": "缺少 user_id 参数"}), 400
 
@@ -206,12 +207,12 @@ class ProfileAPI:
         if not store:
             return jsonify({"error": "策略存储不可用"}), 500
 
-        strategy = store.get_strategy(user_id)
-        intimacy = store.get_intimacy(user_id)
+        strategy = store.get_strategy(user_id, scope=scope)
+        intimacy = store.get_intimacy(user_id, scope=scope)
 
         if not strategy and nickname:
-            strategy = store.get_strategy(nickname)
-            intimacy = store.get_intimacy(nickname)
+            strategy = store.get_strategy(nickname, scope=scope)
+            intimacy = store.get_intimacy(nickname, scope=scope)
 
         return jsonify({"user_id": user_id, "strategy": strategy, "intimacy": intimacy})
 

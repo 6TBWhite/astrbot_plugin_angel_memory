@@ -86,6 +86,13 @@ class AngelAdminDirectiveTool(FunctionTool):
                 self.logger.info(f"{self.name}: target_user={target_user} → resolved_id={resolved_id}")
 
         try:
+            memory_scope = await plugin_context.resolve_memory_scope_from_event(event)
+            if not isinstance(memory_scope, str):
+                memory_scope = str(memory_scope)
+        except Exception:
+            memory_scope = "public"
+
+        try:
             if target_type == "strategy":
                 store = plugin_context.get_component("strategy_store")
                 if not store:
@@ -94,9 +101,10 @@ class AngelAdminDirectiveTool(FunctionTool):
                     user_id=resolved_id,
                     strategy=content,
                     source=f"管理员指令 | {datetime.now().strftime('%Y-%m-%d')}",
+                    scope=memory_scope,
                 )
                 self.logger.info(
-                    f"{self.name}: 已更新策略 target_user={resolved_id} content=「{content[:30]}」"
+                    f"{self.name}: 已更新策略 scope={memory_scope} target_user={resolved_id} content=「{content[:30]}」"
                 )
                 return f"已更新对 {resolved_id} 的相处策略：「{content}」"
 
