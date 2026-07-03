@@ -162,7 +162,7 @@ class DeepMindInjectionService:
                 f"profiles_len={len(user_profile_context)}"
             )
         else:
-            deepmind.logger.debug(
+            deepmind.logger.info(
                 f"[用户画像注入] 空画像 session={session_id} — 暂无画像记忆或策略数据"
             )
 
