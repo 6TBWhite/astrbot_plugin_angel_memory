@@ -1594,6 +1594,50 @@ class MemorySqlManager:
             result.append(mem)
         return result
 
+    async def count_memories_for_user(
+        self,
+        user_id: str,
+        memory_scope: str = "public",
+        memory_type: str = "",
+    ) -> int:
+        return await asyncio.to_thread(
+            self._count_memories_for_user_sync,
+            user_id,
+            memory_scope,
+            memory_type,
+        )
+
+    def _count_memories_for_user_sync(
+        self,
+        user_id: str,
+        memory_scope: str = "public",
+        memory_type: str = "",
+    ) -> int:
+        user_id = str(user_id or "").strip()
+        if not user_id:
+            return 0
+        scope_clause, scope_args = self._scope_sql(memory_scope, alias="mr")
+        type_clause = ""
+        type_args = ()
+        if memory_type:
+            type_clause = "AND mr.memory_type = ?"
+            type_args = (memory_type,)
+        with self._connect() as conn:
+            row = conn.execute(
+                f"""
+                SELECT COUNT(DISTINCT mr.id) AS cnt
+                FROM memory_records mr
+                JOIN memory_tag_rel mtr ON mtr.memory_id = mr.id
+                JOIN global_tags gt ON gt.id = mtr.tag_id
+                WHERE gt.name = ?
+                  AND mr.strength > 0
+                  AND {scope_clause}
+                  {type_clause}
+                """,
+                tuple([user_id, *scope_args, *type_args]),
+            ).fetchone()
+        return int(row["cnt"]) if row else 0
+
     async def merge_group(self, memory_ids: List[str]) -> Optional[BaseMemory]:
         return await asyncio.to_thread(self._merge_group_sync, memory_ids)
 

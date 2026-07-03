@@ -11,6 +11,7 @@ DeepMind潜意识核心模块
 import asyncio
 import time
 import json
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from astrbot.api.event import AstrMessageEvent
@@ -1004,6 +1005,88 @@ class DeepMind:
                 self.logger.info(f"[反思调度] 完成 session={session_id}")
         return bool(success)
 
+    @staticmethod
+    def _build_strategy_analysis_prompt(reflection_input: ReflectionInput) -> str:
+        chat_records = getattr(reflection_input, "chat_records", []) or []
+        sender_ids = set()
+        for record in chat_records:
+            sid = str(record.get("sender_id", "") or "").strip()
+            sname = str(record.get("sender_name", "") or "").strip()
+            if sid:
+                sender_ids.add(sid)
+            elif sname:
+                sender_ids.add(sname)
+        if not sender_ids:
+            return ""
+        user_list = "、".join(sorted(sender_ids))
+        return (
+            "\n\n---\n"
+            "## 相处策略分析（可选）\n"
+            f"本轮对话参与的用户: {user_list}\n"
+            "基于以上聊天内容，判断你是否需要调整与这些用户的相处方式。\n"
+            "不需要则输出空数组，不需要分析则不影响原有输出。\n"
+            "在 feedback_data 同级追加 strategies 字段:\n"
+            '"strategies": [ {"user_id": "...", "strategy": "一句话策略"} ]\n'
+            "只写一句，不要冗长。"
+        )
+
+    async def _auto_update_strategies_and_intimacy(
+        self,
+        session_id: str,
+        reflection_input: ReflectionInput,
+        long_term_memories,
+        newly_created_memories,
+    ):
+        try:
+            chat_records = getattr(reflection_input, "chat_records", []) or []
+            sender_stats = {}
+            for record in chat_records:
+                sender_id = str(record.get("sender_id", "") or "").strip()
+                sender_name = str(record.get("sender_name", "") or "").strip()
+                key = sender_id or sender_name
+                if not key:
+                    continue
+                if key not in sender_stats:
+                    sender_stats[key] = {"rounds": 0, "chars": 0, "name": sender_name or sender_id}
+                sender_stats[key]["rounds"] += 1
+                sender_stats[key]["chars"] += len(str(record.get("content", "")))
+
+            memory_scope = str(getattr(reflection_input, "memory_scope", "public") or "public").strip()
+            strategy_store = self.plugin_context.get_component("strategy_store")
+            memory_sql_manager = self.plugin_context.get_component("memory_sql_manager")
+
+            for user_key, stats in sender_stats.items():
+                old_intimacy = 0.0
+                if strategy_store:
+                    old_intimacy = strategy_store.get_intimacy(user_key)
+
+                intensity = min(stats["chars"] / 500, 1.0)
+                freq_bonus = min(stats["rounds"] * 0.3, 1.0)
+                total_memories = 0
+                if memory_sql_manager:
+                    try:
+                        total_memories = await memory_sql_manager.count_memories_for_user(
+                            user_key, memory_scope
+                        )
+                    except Exception:
+                        pass
+                emotion_density = min(total_memories / 50, 1.0)
+                computed = (
+                    old_intimacy * 0.3
+                    + intensity * 0.25
+                    + freq_bonus * 0.20
+                    + emotion_density * 0.25
+                )
+                new_intimacy = round(max(0.0, min(1.0, computed)), 2)
+                if abs(new_intimacy - old_intimacy) >= 0.01 and strategy_store:
+                    strategy_store.set_intimacy(user_key, new_intimacy)
+                    self.logger.info(
+                        f"[亲密度] 自动更新 session={session_id} "
+                        f"user={user_key} {old_intimacy:.2f}→{new_intimacy:.2f}"
+                    )
+        except Exception as e:
+            self.logger.debug(f"[亲密度] 自动更新失败（已忽略） session={session_id}: {e}")
+
     async def _execute_async_analysis_task(
         self,
         reflection_input: ReflectionInput,
@@ -1079,6 +1162,7 @@ class DeepMind:
                 memory_id_mapping=memory_id_mapping,
                 config=self.config,
             )
+            prompt += self._build_strategy_analysis_prompt(reflection_input)
 
             self.logger.info(
                 f"[反思执行] 最终提示词 session={session_id} "
@@ -1136,6 +1220,31 @@ class DeepMind:
                         self.logger.info(f"🧘 灵魂反思 ({state_code}): {self.soul.get_state_description()}")
                     except ValueError:
                         self.logger.warning(f"无效的灵魂状态代码: {state_code}")
+
+            # --- 策略自动更新 ---
+            strategies = full_json_data.get("strategies", [])
+            if strategies and isinstance(strategies, list):
+                strategy_store = self.plugin_context.get_component("strategy_store")
+                if strategy_store:
+                    for s in strategies:
+                        if not isinstance(s, dict):
+                            continue
+                        user_id = str(s.get("user_id", "") or "").strip()
+                        strategy_text = str(s.get("strategy", "") or "").strip()
+                        if not user_id or not strategy_text:
+                            continue
+                        existing = strategy_store.get_strategy(user_id)
+                        if existing.get("source", "").startswith("管理员指令"):
+                            continue
+                        strategy_store.set_strategy(
+                            user_id=user_id,
+                            strategy=strategy_text,
+                            source=f"反思自动总结 | {datetime.now().strftime('%Y-%m-%d')}",
+                        )
+                        self.logger.info(
+                            f"[策略自动] session={session_id} "
+                            f"user={user_id} strategy=「{strategy_text[:30]}」"
+                        )
 
             # ID解析：使用映射表将LLM返回的短ID翻译回长ID
             memory_id_mapping = context_data.get("memory_id_mapping", {})
@@ -1229,6 +1338,12 @@ class DeepMind:
             self.logger.info(
                 f"[反思执行] 完成 session={session_id} "
                 f"useful={len(useful_ids)} new={len(newly_created_memories)}"
+            )
+
+            asyncio.create_task(
+                self._auto_update_strategies_and_intimacy(
+                    session_id, reflection_input, long_term_memories, newly_created_memories
+                )
             )
 
         except Exception as e:
