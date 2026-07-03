@@ -181,5 +181,19 @@
         "hint": "控制实际注入给应答模型的笔记条数。建议 3-20。"
       }
     }
+  },
+  "admin_directive": {
+    "type": "object",
+    "description": "[管理员指令] 工具权限配置",
+    "hint": "控制 angel_admin_directive 和 angel_self_evolve 工具的使用权限。与 AstrBot 全局管理员 ID 共同生效（满足其一即可）。",
+    "items": {
+      "allowed_ids": {
+        "type": "text",
+        "description": "额外允许使用管理员工具的用户 ID 列表",
+        "default": "",
+        "hint": "每行一个用户 ID（QQ号等），留空则仅依赖 AstrBot 全局管理员。",
+        "editor_mode": true
+      }
+    }
   }
 }

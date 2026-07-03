@@ -145,10 +145,19 @@ class AngelAdminDirectiveTool(FunctionTool):
                 return True
         except Exception:
             pass
+        sender_id = str(event.get_sender_id() or "").strip()
+        if not sender_id:
+            return False
         try:
-            sender_id = str(event.get_sender_id() or "").strip()
             plugin_ctx = getattr(event, "plugin_context", None)
-            if plugin_ctx and sender_id:
+            if plugin_ctx:
+                admin_config = plugin_ctx.get_config("admin_directive", {}) or {}
+                allowed_raw = str(admin_config.get("allowed_ids", "") or "").strip()
+                if allowed_raw:
+                    for line in allowed_raw.splitlines():
+                        line_id = line.strip()
+                        if line_id and line_id == sender_id:
+                            return True
                 astrbot_ctx = plugin_ctx.get_astrbot_context()
                 if astrbot_ctx:
                     global_cfg = astrbot_ctx.get_config()
