@@ -198,6 +198,7 @@ class ProfileAPI:
 
     async def get_strategy(self):
         user_id = request.args.get("user_id", "").strip()
+        nickname = request.args.get("nickname", "").strip()
         if not user_id:
             return jsonify({"error": "缺少 user_id 参数"}), 400
 
@@ -208,13 +209,9 @@ class ProfileAPI:
         strategy = store.get_strategy(user_id)
         intimacy = store.get_intimacy(user_id)
 
-        if not strategy:
-            all_strategies = store.get_all_strategies()
-            for stored_id, stored_strategy in all_strategies.items():
-                if user_id.lower() in stored_id.lower() or stored_id.lower() in user_id.lower():
-                    strategy = stored_strategy
-                    intimacy = store.get_intimacy(stored_id)
-                    break
+        if not strategy and nickname:
+            strategy = store.get_strategy(nickname)
+            intimacy = store.get_intimacy(nickname)
 
         return jsonify({"user_id": user_id, "strategy": strategy, "intimacy": intimacy})
 

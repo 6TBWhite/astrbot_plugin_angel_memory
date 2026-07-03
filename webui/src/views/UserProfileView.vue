@@ -263,7 +263,7 @@ async function selectUser(user: any) {
   try {
     const data: any = await apiGet('profiles/detail', { user_id: user.user_id })
     profileMemories.value = data.memories || []
-    await loadStrategy(user.user_id)
+    await loadStrategy(user.user_id, user.nickname)
   } catch (e) {
     console.error('加载用户画像失败:', e)
   } finally {
@@ -271,9 +271,11 @@ async function selectUser(user: any) {
   }
 }
 
-async function loadStrategy(userId: string) {
+async function loadStrategy(userId: string, nickname?: string) {
   try {
-    const data: any = await apiGet('profiles/strategy', { user_id: userId })
+    const params: Record<string, string> = { user_id: userId }
+    if (nickname) params.nickname = nickname
+    const data: any = await apiGet('profiles/strategy', params)
     const strategy = data.strategy || {}
     strategyText.value = strategy.strategy || ''
     strategySource.value = strategy.source || ''

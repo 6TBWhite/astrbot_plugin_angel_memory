@@ -19,24 +19,37 @@ class StrategyStore:
     def __init__(self):
         self._strategies: Dict[str, dict] = {}
         self._intimacies: Dict[str, float] = {}
+        self._aliases: Dict[str, str] = {}
         self.logger = logger
 
-    def set_strategy(self, user_id: str, strategy: str, source: str = "") -> None:
+    def set_strategy(self, user_id: str, strategy: str, source: str = "", alias_for: str = "") -> None:
         self._strategies[user_id] = {
             "strategy": strategy,
             "source": source,
             "updated_at": str(int(time.time())),
         }
+        if alias_for:
+            self._aliases[user_id] = alias_for
         self.logger.info(f"[策略卡] 已设置 user_id={user_id} strategy=「{strategy[:30]}」")
 
     def get_strategy(self, user_id: str) -> dict:
-        return self._strategies.get(user_id, {})
+        if user_id in self._strategies:
+            return self._strategies[user_id]
+        alias_target = self._aliases.get(user_id, "")
+        if alias_target and alias_target in self._strategies:
+            return self._strategies[alias_target]
+        return {}
 
     def set_intimacy(self, user_id: str, score: float) -> None:
         self._intimacies[user_id] = max(0.0, min(1.0, score))
 
     def get_intimacy(self, user_id: str) -> float:
-        return self._intimacies.get(user_id, 0.0)
+        if user_id in self._intimacies:
+            return self._intimacies[user_id]
+        alias_target = self._aliases.get(user_id, "")
+        if alias_target and alias_target in self._intimacies:
+            return self._intimacies[alias_target]
+        return 0.0
 
     def get_all_strategies(self) -> dict:
         return dict(self._strategies)
