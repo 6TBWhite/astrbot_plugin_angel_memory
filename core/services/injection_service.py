@@ -147,7 +147,7 @@ class DeepMindInjectionService:
         strategy_store = deepmind.plugin_context.get_component("strategy_store")
         if strategy_store and user_profile_context:
             strategy_lines = self._build_strategy_context(
-                deepmind.user_profile_service, session_id, strategy_store, memory_scope
+                deepmind.user_profile_service, session_id, strategy_store
             )
             if strategy_lines:
                 user_profile_context += strategy_lines
@@ -182,17 +182,13 @@ class DeepMindInjectionService:
             )
 
     @staticmethod
-    def _build_strategy_context(profile_service, session_id: str, strategy_store, scope: str = "public") -> str:
+    def _build_strategy_context(profile_service, session_id: str, strategy_store) -> str:
         user_ids = profile_service._session_user_ids.get(str(session_id or "").strip(), [])
         user_names = profile_service._session_user_names.get(str(session_id or "").strip(), {})
         parts = []
         for user_id in user_ids:
-            strategy = strategy_store.get_strategy(user_id, scope=scope)
-            intimacy = strategy_store.get_intimacy(user_id, scope=scope)
-            nickname = user_names.get(user_id, "")
-            if not strategy and nickname:
-                strategy = strategy_store.get_strategy(nickname, scope=scope)
-                intimacy = strategy_store.get_intimacy(nickname, scope=scope)
+            strategy = strategy_store.get_strategy(user_id)
+            intimacy = strategy_store.get_intimacy(user_id)
             if not strategy and intimacy == 0.0:
                 continue
             if strategy.get("strategy"):
