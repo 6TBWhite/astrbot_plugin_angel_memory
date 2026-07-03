@@ -69,6 +69,7 @@ def register_all_routes(context: "Context", plugin_context) -> None:
         # 触动积累 & 自省
         (f"/{PLUGIN_NAME}/impulses", belief_api.list_impulses, ["GET"], "触动与自省列表"),
         (f"/{PLUGIN_NAME}/impulses/dismiss", belief_api.dismiss_confession, ["POST"], "忽略自省提案"),
+        (f"/{PLUGIN_NAME}/impulses/test-trigger", belief_api.test_trigger, ["POST"], "测试触发自省"),
     ]
 
     for path, handler, methods, description in routes:

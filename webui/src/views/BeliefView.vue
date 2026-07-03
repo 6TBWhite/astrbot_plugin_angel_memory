@@ -82,6 +82,8 @@
           <v-chip class="ml-2" size="small" :color="impulseTotalWeight >= impulseThreshold ? 'warning' : 'info'">
             权重 {{ impulseTotalWeight }} / {{ impulseThreshold }}
           </v-chip>
+          <v-spacer />
+          <v-btn size="small" variant="tonal" color="warning" :loading="testing" @click="testTrigger">模拟触发自省</v-btn>
         </v-card-title>
         <v-card-text>
           <v-list v-if="impulses.length" lines="two">
@@ -139,6 +141,7 @@ const impulses = ref<any[]>([])
 const confessions = ref<any[]>([])
 const impulseTotalWeight = ref(0)
 const impulseThreshold = ref(3.0)
+const testing = ref(false)
 
 async function loadBeliefs() {
   try {
@@ -169,6 +172,18 @@ async function dismissConfession(id: string) {
     await loadImpulses()
   } catch (e) {
     console.error('忽略提案失败:', e)
+  }
+}
+
+async function testTrigger() {
+  testing.value = true
+  try {
+    await apiPost('impulses/test-trigger', {})
+    await loadImpulses()
+  } catch (e) {
+    console.error('测试触发失败:', e)
+  } finally {
+    testing.value = false
   }
 }
 

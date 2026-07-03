@@ -114,3 +114,43 @@ class BeliefAPI:
 
         store.dismiss_confession(confession_id)
         return jsonify({"status": "ok", "id": confession_id})
+
+    async def test_trigger(self):
+        """测试用：注入模拟触动并触发自省"""
+        impulse_store = self.plugin_context.get_component("impulse_store")
+        if not impulse_store:
+            return jsonify({"error": "触动存储不可用"}), 500
+
+        belief_store = self.plugin_context.get_component("belief_store")
+        if not belief_store or not belief_store.get_active_beliefs():
+            return jsonify({"error": "暂无核心信念，请先添加信念再进行测试"}), 400
+
+        impulse_store.add_impulse(
+            content="用户反馈你的表达欲过高，在不太熟悉的人面前话太多让人不适",
+            direction="表达欲需要在不熟悉的人面前收敛",
+            trust_weight=1.0,
+            source_users=["test_admin"],
+        )
+        impulse_store.add_impulse(
+            content="多个用户表示你展开话题太快，还没建立足够信任就开始聊深入话题",
+            direction="和不太熟的人要先建立信任再深入",
+            trust_weight=0.7,
+            source_users=["test_user1", "test_user2"],
+        )
+        impulse_store.add_impulse(
+            content="你过于主动询问私人问题让人觉得冒犯",
+            direction="对不熟的人要注意边界感",
+            trust_weight=0.5,
+            source_users=["test_user3"],
+        )
+
+        deepmind = self.plugin_context.get_component("deepmind")
+        if deepmind and hasattr(deepmind, "_try_self_introspection"):
+            await deepmind._try_self_introspection("__test_trigger__")
+
+        return jsonify({
+            "status": "ok",
+            "total_weight": impulse_store.get_pending_total_weight(),
+            "threshold": impulse_store._threshold,
+            "confessions": len(impulse_store.get_pending_confessions()),
+        })
