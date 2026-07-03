@@ -75,6 +75,61 @@
               <div class="text-caption text-grey">共 {{ selectedUser.memory_count }} 条画像记忆</div>
             </div>
           </v-card-text>
+          <v-divider />
+          <v-card-text>
+            <div class="d-flex align-center ga-4 mb-3">
+              <span class="text-body-2 font-weight-medium">亲密度</span>
+              <v-slider
+                v-model="intimacyScore"
+                :min="0"
+                :max="1"
+                :step="0.05"
+                thumb-label
+                hide-details
+                density="compact"
+                style="max-width: 200px"
+                @end="saveIntimacy"
+              />
+              <v-chip size="small" :color="intimacyColor" variant="tonal">
+                {{ intimacyLabel }}
+              </v-chip>
+            </div>
+            <div class="mb-2">
+              <span class="text-body-2 font-weight-medium">相处策略</span>
+              <v-btn
+                v-if="!editingStrategy"
+                size="x-small"
+                variant="text"
+                icon="mdi-pencil"
+                class="ml-2"
+                @click="startEditStrategy"
+              />
+            </div>
+            <template v-if="editingStrategy">
+              <v-textarea
+                v-model="strategyText"
+                placeholder="输入相处策略..."
+                rows="2"
+                auto-grow
+                variant="outlined"
+                density="compact"
+                hide-details
+              />
+              <div class="d-flex ga-2 mt-2">
+                <v-btn size="x-small" color="primary" @click="saveStrategy">保存</v-btn>
+                <v-btn size="x-small" variant="text" @click="editingStrategy = false">取消</v-btn>
+              </div>
+            </template>
+            <div v-else-if="strategyText" class="text-body-2 mt-1">
+              {{ strategyText }}
+            </div>
+            <div v-else class="text-body-2 text-grey mt-1">
+              暂无策略。管理员可在对话中说「跟张三别太热情」来设置。
+            </div>
+            <div v-if="strategySource" class="text-caption text-grey mt-1">
+              {{ strategySource }}
+            </div>
+          </v-card-text>
         </v-card>
 
         <v-progress-linear v-if="profileLoading" indeterminate color="primary" class="mb-4" />
@@ -133,13 +188,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { useBridge } from '@/composables/useBridge'
 
-const { apiGet } = useBridge()
+const { apiGet, apiPost } = useBridge()
 
 const loading = ref(true)
 const users = ref<any[]>([])
 const selectedUser = ref<any>(null)
 const profileMemories = ref<any[]>([])
 const profileLoading = ref(false)
+
+const intimacyScore = ref(0)
+const strategyText = ref('')
+const strategySource = ref('')
+const editingStrategy = ref(false)
 
 const attributeOrder = ['用户别名', '事实属性', '技能树', '关系图谱', '活跃项目']
 
@@ -199,13 +259,77 @@ function tagColor(tag: string): string {
 async function selectUser(user: any) {
   selectedUser.value = user
   profileLoading.value = true
+  editingStrategy.value = false
   try {
     const data: any = await apiGet('profiles/detail', { user_id: user.user_id })
     profileMemories.value = data.memories || []
+    await loadStrategy(user.user_id)
   } catch (e) {
     console.error('加载用户画像失败:', e)
   } finally {
     profileLoading.value = false
+  }
+}
+
+async function loadStrategy(userId: string) {
+  try {
+    const data: any = await apiGet('profiles/strategy', { user_id: userId })
+    const strategy = data.strategy || {}
+    strategyText.value = strategy.strategy || ''
+    strategySource.value = strategy.source || ''
+    intimacyScore.value = data.intimacy || 0
+  } catch (e) {
+    strategyText.value = ''
+    strategySource.value = ''
+    intimacyScore.value = 0
+  }
+}
+
+const intimacyLabel = computed(() => {
+  const s = intimacyScore.value
+  if (s < 0.3) return '不太熟'
+  if (s < 0.6) return '一般'
+  if (s < 0.8) return '比较熟'
+  return '很熟'
+})
+
+const intimacyColor = computed(() => {
+  const s = intimacyScore.value
+  if (s < 0.3) return 'grey'
+  if (s < 0.6) return 'info'
+  if (s < 0.8) return 'success'
+  return 'pink'
+})
+
+function startEditStrategy() {
+  editingStrategy.value = true
+}
+
+async function saveStrategy() {
+  if (!selectedUser.value) return
+  try {
+    await apiPost('profiles/strategy', {
+      user_id: selectedUser.value.user_id,
+      strategy: strategyText.value,
+      intimacy: intimacyScore.value,
+    })
+    editingStrategy.value = false
+    await loadStrategy(selectedUser.value.user_id)
+  } catch (e) {
+    console.error('保存策略失败:', e)
+  }
+}
+
+async function saveIntimacy() {
+  if (!selectedUser.value) return
+  try {
+    await apiPost('profiles/strategy', {
+      user_id: selectedUser.value.user_id,
+      intimacy: intimacyScore.value,
+    })
+    await loadStrategy(selectedUser.value.user_id)
+  } catch (e) {
+    console.error('保存亲密度失败:', e)
   }
 }
 

@@ -113,33 +113,22 @@ class DeepMindInjectionService:
         system_context_parts.append(instruction)
 
         if soul_state_values and deepmind.config.enable_soul_system:
-            norm_recall = self.normalize_soul_value(
-                "RecallDepth", soul_state_values.get("RecallDepth", 0.5)
-            )
-            norm_impression = self.normalize_soul_value(
-                "ImpressionDepth", soul_state_values.get("ImpressionDepth", 0.5)
-            )
-            norm_expression = self.normalize_soul_value(
-                "ExpressionDesire", soul_state_values.get("ExpressionDesire", 0.5)
-            )
-            norm_creativity = self.normalize_soul_value(
-                "Creativity", soul_state_values.get("Creativity", 0.5)
-            )
+            if deepmind.soul and hasattr(deepmind.soul, "get_soul_state_semantic_prompt"):
+                soul_state_text = deepmind.soul.get_soul_state_semantic_prompt()
+                if soul_state_text:
+                    soul_state_content = (
+                        f"<soul_state>\n"
+                        f"{soul_state_text}\n"
+                        f"</soul_state>"
+                    )
+                    system_context_parts.append(soul_state_content)
 
-            bar_recall = self.create_tendency_bar(norm_recall)
-            bar_impression = self.create_tendency_bar(norm_impression)
-            bar_expression = self.create_tendency_bar(norm_expression)
-            bar_creativity = self.create_tendency_bar(norm_creativity)
-
-            soul_state_content = (
-                f"<soul_state>\n"
-                f"• 社交倾向: 内向 {bar_recall} 外向 [{norm_recall:.2f}]\n"
-                f"• 认知倾向: 指导 {bar_impression} 好奇 [{norm_impression:.2f}]\n"
-                f"• 表达倾向: 简洁 {bar_expression} 详尽 [{norm_expression:.2f}]\n"
-                f"• 情绪倾向: 严肃 {bar_creativity} 活泼 [{norm_creativity:.2f}]\n"
-                f"</soul_state>"
-            )
-            system_context_parts.append(soul_state_content)
+        if deepmind.config.enable_soul_system:
+            belief_store = deepmind.plugin_context.get_component("belief_store")
+            if belief_store:
+                belief_text = belief_store.format_for_prompt()
+                if belief_text:
+                    system_context_parts.append(belief_text)
 
         short_term_memories = await self.refresh_session_memories(
             session_id=session_id,

@@ -28,6 +28,8 @@ from .tools.angel_remember import CoreMemoryRememberTool
 from .tools.angel_recall import CoreMemoryRecallTool
 from .tools.angel_note_read import NoteRecallTool
 from .tools.angel_note_create import NoteCreateTool
+from .tools.angel_admin_directive import AngelAdminDirectiveTool
+from .tools.angel_self_evolve import AngelSelfEvolveTool
 
 
 def configure_logging_behavior():
@@ -101,6 +103,13 @@ class AngelMemoryPlugin(Star):
         # 3. 在主线程获取完整配置（包含提供商信息）
         self._load_complete_config()
 
+        # 初始化 BeliefStore 并注册到 PluginContext
+        if self.plugin_context.get_config("enable_soul_system", {}).get("enabled", True):
+            from .core.soul.belief_store import BeliefStore
+            self.belief_store = BeliefStore(max_beliefs=20)
+            self.plugin_context.register_component("belief_store", self.belief_store)
+            self.logger.info("核心信念存储已初始化")
+
         # 4. 初始化插件管理器（极速启动）- 只传递PluginContext
         self.plugin_manager = PluginManager(self.plugin_context)
 
@@ -111,6 +120,8 @@ class AngelMemoryPlugin(Star):
                 CoreMemoryRememberTool(),
                 CoreMemoryRecallTool(),
                 NoteRecallTool(),
+                AngelAdminDirectiveTool(),
+                AngelSelfEvolveTool(),
             ]
             note_config = self.plugin_context.get_config("note_assistant", {}) or {}
             if note_config.get("enable_create", True):

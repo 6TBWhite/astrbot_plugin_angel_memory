@@ -192,3 +192,53 @@ class ProfileAPI:
             return jsonify({"error": str(e)}), 500
         finally:
             conn.close()
+
+    def _get_profile_service(self):
+        deepmind = self.plugin_context.get_component("deepmind")
+        if deepmind and hasattr(deepmind, "user_profile_service"):
+            return deepmind.user_profile_service
+        return None
+
+    async def get_strategy(self):
+        user_id = request.args.get("user_id", "").strip()
+        if not user_id:
+            return jsonify({"error": "缺少 user_id 参数"}), 400
+
+        profile_service = self._get_profile_service()
+        if not profile_service:
+            return jsonify({"error": "画像服务不可用"}), 500
+
+        strategy = profile_service.get_user_strategy(user_id)
+        intimacy = profile_service.get_user_intimacy(user_id)
+        return jsonify({"user_id": user_id, "strategy": strategy, "intimacy": intimacy})
+
+    async def set_strategy(self):
+        data = await request.get_json()
+        if not data:
+            return jsonify({"error": "缺少请求体"}), 400
+
+        user_id = str(data.get("user_id", "")).strip()
+        strategy = str(data.get("strategy", "")).strip()
+        intimacy = data.get("intimacy")
+
+        if not user_id:
+            return jsonify({"error": "缺少 user_id"}), 400
+
+        profile_service = self._get_profile_service()
+        if not profile_service:
+            return jsonify({"error": "画像服务不可用"}), 500
+
+        if strategy:
+            profile_service.set_user_strategy(
+                user_id=user_id,
+                strategy=strategy,
+                source=f"WebUI手动编辑 | 亲和度{intimacy if intimacy else '未设'}",
+            )
+
+        if intimacy is not None:
+            try:
+                profile_service.set_user_intimacy(user_id, float(intimacy))
+            except (TypeError, ValueError):
+                pass
+
+        return jsonify({"status": "ok", "user_id": user_id})

@@ -24,6 +24,8 @@ class UserProfileService:
         self._session_user_ids: Dict[str, List[str]] = {}
         self._session_user_names: Dict[str, Dict[str, str]] = {}
         self._session_profiles: Dict[str, List[BaseMemory]] = {}
+        self._session_strategies: Dict[str, Dict[str, Dict[str, str]]] = {}
+        self._session_intimacies: Dict[str, Dict[str, float]] = {}
 
     def set_memory_sql_manager(self, memory_sql_manager) -> None:
         self.memory_sql_manager = memory_sql_manager
@@ -187,7 +189,71 @@ class UserProfileService:
                     if mem_id:
                         short_id = short_id_registry.get_short_id(mem_id)
                 lines.append(f"\n{MemoryFormatter.format_single_memory(memory, short_id=short_id)}")
+            strategy_text = self._format_user_strategy(user_id)
+            if strategy_text:
+                lines.append(strategy_text)
+            intimacy_text = self._format_user_intimacy(user_id)
+            if intimacy_text:
+                lines.append(intimacy_text)
         return "".join(lines)
+
+    def set_user_strategy(
+        self,
+        user_id: str,
+        strategy: str,
+        source: str = "",
+    ) -> None:
+        sid = "global"
+        if sid not in self._session_strategies:
+            self._session_strategies[sid] = {}
+        self._session_strategies[sid][user_id] = {
+            "strategy": strategy,
+            "source": source,
+            "updated_at": str(int(time.time())),
+        }
+
+    def get_user_strategy(self, user_id: str) -> Dict[str, str]:
+        sid = "global"
+        return self._session_strategies.get(sid, {}).get(user_id, {})
+
+    def set_user_intimacy(self, user_id: str, score: float) -> None:
+        sid = "global"
+        if sid not in self._session_intimacies:
+            self._session_intimacies[sid] = {}
+        self._session_intimacies[sid][user_id] = max(0.0, min(1.0, score))
+
+    def get_user_intimacy(self, user_id: str) -> float:
+        sid = "global"
+        return self._session_intimacies.get(sid, {}).get(user_id, 0.0)
+
+    def _format_user_strategy(self, user_id: str) -> str:
+        strategy = self.get_user_strategy(user_id)
+        if not strategy or not strategy.get("strategy"):
+            return ""
+        parts = [f"\n策略: {strategy['strategy']}"]
+        if strategy.get("source"):
+            parts.append(f"来源: {strategy['source']}")
+        if strategy.get("updated_at"):
+            try:
+                ts = int(strategy["updated_at"])
+                date_str = time.strftime("%Y-%m-%d", time.localtime(ts))
+                parts.append(f"更新: {date_str}")
+            except (ValueError, TypeError, OSError):
+                pass
+        return "  ".join(parts)
+
+    def _format_user_intimacy(self, user_id: str) -> str:
+        score = self.get_user_intimacy(user_id)
+        if score == 0.0:
+            return ""
+        level = "很熟"
+        if score < 0.3:
+            level = "不太熟"
+        elif score < 0.6:
+            level = "一般"
+        elif score < 0.8:
+            level = "比较熟"
+        return f"\n亲密度: {score:.2f}（{level}）"
 
     @staticmethod
     def _deduplicate_profiles(memories: Iterable[BaseMemory]) -> List[BaseMemory]:

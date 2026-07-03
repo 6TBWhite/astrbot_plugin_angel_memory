@@ -21,12 +21,14 @@ def register_all_routes(context: "Context", plugin_context) -> None:
     from .tags_api import TagsAPI
     from .maintenance_api import MaintenanceAPI
     from .profile_api import ProfileAPI
+    from .belief_api import BeliefAPI
 
     memory_api = MemoryAPI(plugin_context)
     notes_api = NotesAPI(plugin_context)
     tags_api = TagsAPI(plugin_context)
     maintenance_api = MaintenanceAPI(plugin_context)
     profile_api = ProfileAPI(plugin_context)
+    belief_api = BeliefAPI(plugin_context)
 
     routes = [
         # 总览
@@ -57,6 +59,13 @@ def register_all_routes(context: "Context", plugin_context) -> None:
         # 用户画像
         (f"/{PLUGIN_NAME}/profiles", profile_api.list_users, ["GET"], "用户画像列表"),
         (f"/{PLUGIN_NAME}/profiles/detail", profile_api.get_user_profile, ["GET"], "用户画像详情"),
+        (f"/{PLUGIN_NAME}/profiles/strategy", profile_api.get_strategy, ["GET"], "用户策略卡"),
+        (f"/{PLUGIN_NAME}/profiles/strategy", profile_api.set_strategy, ["POST"], "设置策略卡"),
+        # 核心信念
+        (f"/{PLUGIN_NAME}/beliefs", belief_api.list_beliefs, ["GET"], "核心信念列表"),
+        (f"/{PLUGIN_NAME}/beliefs", belief_api.add_belief, ["POST"], "新增核心信念"),
+        (f"/{PLUGIN_NAME}/beliefs/modify", belief_api.modify_belief, ["POST"], "修改核心信念"),
+        (f"/{PLUGIN_NAME}/beliefs/delete", belief_api.delete_belief, ["POST"], "删除核心信念"),
     ]
 
     for path, handler, methods, description in routes:

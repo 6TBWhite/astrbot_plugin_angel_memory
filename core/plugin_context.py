@@ -57,6 +57,7 @@ class PluginContext:
         self._component_factory = None
         self._scope_name_pattern = re.compile(r"^[a-zA-Z0-9\u4e00-\u9fff_-]+$")
         self._conversation_scope_map: Dict[str, str] = {}
+        self._extra_components: Dict[str, Any] = {}
 
         # 初始化插件资源
         self._setup_plugin_resources()
@@ -448,11 +449,17 @@ class PluginContext:
         self._component_factory = component_factory
 
     def get_component(self, component_name: str):
-        """获取ComponentFactory中的组件"""
+        """获取ComponentFactory中的组件，或从额外注册的组件中获取"""
+        if component_name in self._extra_components:
+            return self._extra_components[component_name]
         if self._component_factory is None:
             return None
         components = self._component_factory.get_components()
         return components.get(component_name)
+
+    def register_component(self, name: str, component: Any) -> None:
+        """注册额外组件（如 BeliefStore），可在 ComponentFactory 初始化之前使用"""
+        self._extra_components[name] = component
 
     def get_memory_runtime(self):
         """获取统一记忆运行时组件。"""

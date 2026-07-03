@@ -335,4 +335,82 @@ class SoulState:
         desc.append(f"🎨 思维发散: {v_create:.2f}")
         return " | ".join(desc)
 
+    # ---- 语义档位映射表 ----
+
+    EXPRESSION_DESIRE_TIERS = [
+        (0.0, 0.2, "沉默", "几乎不想开口，每句话都要斟酌很久才说，能不说就不说"),
+        (0.2, 0.4, "低语", "话不多，被问才答，语气平淡，不会主动展开话题"),
+        (0.4, 0.6, "自然", "正常接话，该说就说，不冷不热"),
+        (0.6, 0.8, "活跃", "话匣子打开了，会主动抛话题，回复变长"),
+        (0.8, 1.0, "倾泻", "滔滔不绝，想到什么说什么，根本停不下来"),
+    ]
+
+    CREATIVITY_TIERS = [
+        (0.0, 0.2, "刻板", "只会就事论事，思维完全收敛在当前话题上"),
+        (0.2, 0.4, "务实", "偶尔联想但很快拉回来，偏好确定性的回答"),
+        (0.4, 0.6, "灵活", "能自然地延伸话题，在发散和收敛之间切换"),
+        (0.6, 0.8, "跳跃", "联想丰富，话题容易跑远，偶尔冒出意想不到的角度"),
+        (0.8, 1.0, "天马行空", "思维完全发散，一个话题能拉出五个方向"),
+    ]
+
+    RECALL_DEPTH_TIERS = [
+        (1, 4, "淡忘", "只捞最相关的几条记忆，聊天时很少提起过去"),
+        (5, 8, "留心", "会关联一些相关记忆，偶尔提起过去的事"),
+        (9, 13, "追溯", "积极回忆，会把很多过去的事串联起来"),
+        (14, 20, "沉浸", "深度挖掘记忆，几乎把所有相关记忆都翻出来"),
+    ]
+
+    IMPRESSION_DEPTH_TIERS = [
+        (1, 3, "粗心", "只记住最重要的事，细节大多忽略"),
+        (4, 6, "留意", "会记住关键事件和一些有趣的细节"),
+        (7, 10, "铭刻", "对话中的大量细节都会被记住"),
+    ]
+
+    @staticmethod
+    def _resolve_tier(value: float, tiers: list) -> tuple:
+        for low, high, name, desc in tiers:
+            if low <= value <= high:
+                return (name, desc)
+        return ("", "")
+
+    def get_semantic_description(self, dimension: str) -> str:
+        """
+        根据当前维度值返回语义档位描述文本。
+
+        软控制维度（ExpressionDesire / Creativity）返回完整语义描述，
+        供注入到 prompt 中引导模型行为。
+        硬控制维度（RecallDepth / ImpressionDepth）不在 prompt 中注入，
+        仅通过此方法提供日志/调试用途的文本。
+        """
+        value = self.get_value(dimension)
+        if dimension == "ExpressionDesire":
+            name, desc = self._resolve_tier(value, self.EXPRESSION_DESIRE_TIERS)
+        elif dimension == "Creativity":
+            name, desc = self._resolve_tier(value, self.CREATIVITY_TIERS)
+        elif dimension == "RecallDepth":
+            name, desc = self._resolve_tier(value, self.RECALL_DEPTH_TIERS)
+        elif dimension == "ImpressionDepth":
+            name, desc = self._resolve_tier(value, self.IMPRESSION_DEPTH_TIERS)
+        else:
+            return ""
+        if not name:
+            return ""
+        return f"{name}——{desc}"
+
+    def get_soul_state_semantic_prompt(self) -> str:
+        """
+        生成供注入 prompt 使用的灵魂状态语义描述文本。
+
+        仅包含软控制维度（ExpressionDesire, Creativity），
+        硬控制维度不注入提示词（它们直接修改检索/生成参数）。
+        """
+        lines = ["你现在的状态——"]
+        expr_desc = self.get_semantic_description("ExpressionDesire")
+        if expr_desc:
+            lines.append(f"• 表达欲：{expr_desc}")
+        crea_desc = self.get_semantic_description("Creativity")
+        if crea_desc:
+            lines.append(f"• 思维：{crea_desc}")
+        return "\n".join(lines)
+
     # 移除 save 和 load 方法，因为不需要持久化了

@@ -8,6 +8,7 @@ import NoteRecallView from '@/views/NoteRecallView.vue'
 import ImportExportView from '@/views/ImportExportView.vue'
 import MaintenanceView from '@/views/MaintenanceView.vue'
 import UserProfileView from '@/views/UserProfileView.vue'
+import BeliefView from '@/views/BeliefView.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -27,6 +28,12 @@ export const routes: RouteRecordRaw[] = [
     name: 'profiles',
     component: UserProfileView,
     meta: { title: '用户画像', icon: 'mdi-account-group' },
+  },
+  {
+    path: '/beliefs',
+    name: 'beliefs',
+    component: BeliefView,
+    meta: { title: '核心信念', icon: 'mdi-heart' },
   },
   {
     path: '/tags',
