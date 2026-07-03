@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from astrbot.api.provider import ProviderRequest
@@ -155,6 +156,14 @@ class DeepMindInjectionService:
         if user_profile_context:
             system_context_parts.append(
                 f"<user_profiles>\n{user_profile_context}\n</user_profiles>"
+            )
+            deepmind.logger.info(
+                f"[用户画像注入] session={session_id} "
+                f"profiles_len={len(user_profile_context)}"
+            )
+        else:
+            deepmind.logger.debug(
+                f"[用户画像注入] 空画像 session={session_id} — 暂无画像记忆或策略数据"
             )
 
         memory_context = deepmind.memory_injector.format_session_memories_for_prompt(
