@@ -144,6 +144,14 @@ class DeepMindInjectionService:
                 session_id, short_term_memories
             )
 
+        strategy_store = deepmind.plugin_context.get_component("strategy_store")
+        if strategy_store and user_profile_context:
+            strategy_lines = self._build_strategy_context(
+                deepmind.user_profile_service, session_id, strategy_store
+            )
+            if strategy_lines:
+                user_profile_context += strategy_lines
+
         if user_profile_context:
             system_context_parts.append(
                 f"<user_profiles>\n{user_profile_context}\n</user_profiles>"
@@ -172,3 +180,36 @@ class DeepMindInjectionService:
                     "_no_save": True,
                 }
             )
+
+    @staticmethod
+    def _build_strategy_context(profile_service, session_id: str, strategy_store) -> str:
+        user_ids = profile_service._session_user_ids.get(str(session_id or "").strip(), [])
+        user_names = profile_service._session_user_names.get(str(session_id or "").strip(), {})
+        parts = []
+        for user_id in user_ids:
+            strategy = strategy_store.get_strategy(user_id)
+            intimacy = strategy_store.get_intimacy(user_id)
+            if not strategy and intimacy == 0.0:
+                continue
+            if strategy.get("strategy"):
+                parts.append(f"\n策略: {strategy['strategy']}")
+                if strategy.get("source"):
+                    parts.append(f"来源: {strategy['source']}")
+                if strategy.get("updated_at"):
+                    try:
+                        import time as _time
+                        ts = int(strategy["updated_at"])
+                        date_str = _time.strftime("%Y-%m-%d", _time.localtime(ts))
+                        parts.append(f"更新: {date_str}")
+                    except (ValueError, TypeError, OSError):
+                        pass
+            if intimacy > 0:
+                level = "很熟"
+                if intimacy < 0.3:
+                    level = "不太熟"
+                elif intimacy < 0.6:
+                    level = "一般"
+                elif intimacy < 0.8:
+                    level = "比较熟"
+                parts.append(f"\n亲密度: {intimacy:.2f}（{level}）")
+        return "".join(parts)

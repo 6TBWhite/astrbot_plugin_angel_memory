@@ -112,6 +112,14 @@ class AngelMemoryPlugin(Star):
         except Exception as e:
             self.logger.warning(f"核心信念存储初始化失败（已跳过）: {e}")
 
+        try:
+            from .core.soul.strategy_store import StrategyStore
+            self.strategy_store = StrategyStore()
+            self.plugin_context.register_component("strategy_store", self.strategy_store)
+            self.logger.info("策略卡存储已初始化")
+        except Exception as e:
+            self.logger.warning(f"策略卡存储初始化失败（已跳过）: {e}")
+
         # 4. 初始化插件管理器（极速启动）- 只传递PluginContext
         self.plugin_manager = PluginManager(self.plugin_context)
 

@@ -81,11 +81,10 @@ class AngelAdminDirectiveTool(FunctionTool):
 
         try:
             if target_type == "strategy":
-                deepmind = plugin_context.get_component("deepmind")
-                profile_service = getattr(deepmind, "user_profile_service", None) if deepmind else None
-                if not profile_service:
-                    return "错误：用户画像服务不可用。"
-                profile_service.set_user_strategy(
+                store = plugin_context.get_component("strategy_store")
+                if not store:
+                    return "错误：策略卡存储不可用。"
+                store.set_strategy(
                     user_id=target_user,
                     strategy=content,
                     source=f"管理员指令 | {datetime.now().strftime('%Y-%m-%d')}",
