@@ -120,7 +120,7 @@
       </v-card>
 
       <v-card v-if="rejected.length" class="mb-4">
-        <v-card-title>被拒缓冲区（{{ rejected.length }}，30天自动清理）</v-card-title>
+        <v-card-title>被拒提案缓冲区（{{ rejected.length }} 条 · 30天自动清理）</v-card-title>
         <v-card-text>
           <v-list lines="two">
             <v-list-item v-for="r in rejected" :key="r.id">

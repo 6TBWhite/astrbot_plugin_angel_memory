@@ -1148,6 +1148,10 @@ class DeepMind:
             )
             if rejected_text:
                 prompt += f"{rejected_text}\n\n"
+                self.logger.info(
+                    f"[自省] 已传入被拒提案参考 session={session_id} "
+                    f"rejected_count={len(rejected_text)}"
+                )
             prompt += (
                 "请分析是否需要调整你的核心信念，输出 JSON：\n"
                 '{"proposal": "自白提案", "reasoning": "分析推理", '
