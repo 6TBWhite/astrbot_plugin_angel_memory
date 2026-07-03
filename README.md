@@ -2,6 +2,37 @@
 
 > **为AstrBot赋予真正的记忆能力**：让AI不仅能记住，还能主动思考、自主进化
 
+> ## ⚠️ 本仓库说明
+>
+> 这是 [kawayiYokami/astrbot_plugin_angel_memory](https://github.com/kawayiYokami/astrbot_plugin_angel_memory) 的 Fork，在原版基础上新增了**社交智能扩展**模块。
+>
+> ### 新增功能
+>
+> | 功能 | 说明 |
+> |------|------|
+> | **灵魂状态语义化** | 注入格式从进度条数字改为自然语言档位描述，引导力更强；硬控制维度不再注入 prompt |
+> | **相处策略卡** | 每个用户可独立设置相处策略，对话时自动注入提醒 OC 该怎么对待这个人 |
+> | **亲密度系统** | 0.0-1.0 亲密度评分，支持手动设置和反思时自动计算 |
+> | **核心信念** | OC 成长过程中形成的固定认知，注入每次对话引导行为，上限 20 条自动归档 |
+> | **管理员工具** | `angel_admin_directive`（管理员直接下指令改策略/画像/信念）+ `angel_self_evolve`（OC 自写信念） |
+> | **触动积累** | 反思时检测与核心信念有摩擦的信息，按来源加权累积 |
+> | **自省引擎** | 触动达标后调用分析模型自省，生成自白提案 + 置信度过滤 |
+> | **提案缓冲区** | 被拒提案 30 天保留，防重复打扰，允许带新证据重提 |
+> | **WebUI 扩展** | 用户画像页新增亲密度滑块 + 策略卡编辑；核心信念管理页新增触动与自省标签页 |
+> | **持久化** | 策略/亲密度/信念/触动数据写入 plugin_data JSON 文件，重启不丢失 |
+> | **反思 prompt 瘦身** | 从 10K 砍到 4.8K（-53%），去重复保核心规则 |
+>
+> ### 未实现
+>
+> - 主动自白（OC 主动发消息找管理员讨论提案）—— 依赖 AstrBot 主动消息能力
+> - 策略 scope 隔离（人格域隔离）—— 详见 plan 目录
+>
+> ### 配置
+>
+> 在 AstrBot WebUI → 插件配置页新增「管理员指令」配置区，可设置 `allowed_ids` 白名单。
+>
+> ---
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![AstrBot Plugin](https://img.shields.io/badge/AstrBot-Plugin-green.svg)](https://github.com/Soulter/AstrBot)
