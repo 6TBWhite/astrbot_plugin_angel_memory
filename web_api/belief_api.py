@@ -117,7 +117,7 @@ class BeliefAPI:
         return jsonify({"status": "ok", "id": confession_id})
 
     async def test_trigger(self):
-        """测试用：注入模拟触动并触发自省"""
+        """测试用：注入模拟触动"""
         impulse_store = self.plugin_context.get_component("impulse_store")
         if not impulse_store:
             return jsonify({"error": "触动存储不可用"}), 500
@@ -145,13 +145,40 @@ class BeliefAPI:
             source_users=["test_user3"],
         )
 
+        return jsonify({
+            "status": "ok",
+            "total_weight": impulse_store.get_pending_total_weight(),
+            "threshold": impulse_store._threshold,
+            "reached": impulse_store.is_threshold_reached(),
+        })
+
+    async def test_introspection(self):
+        """测试用：手动触发自省（不新增触动）"""
+        impulse_store = self.plugin_context.get_component("impulse_store")
+        if not impulse_store:
+            return jsonify({"error": "触动存储不可用"}), 500
+
+        belief_store = self.plugin_context.get_component("belief_store")
+        if not belief_store or not belief_store.get_active_beliefs():
+            return jsonify({"error": "暂无核心信念"}), 400
+
+        if not impulse_store.is_threshold_reached():
+            return jsonify({"error": "触动权重未达自省阈值", "total_weight": impulse_store.get_pending_total_weight(), "threshold": impulse_store._threshold}), 400
+
         deepmind = self.plugin_context.get_component("deepmind")
         if deepmind and hasattr(deepmind, "_try_self_introspection"):
             await deepmind._try_self_introspection("__test_trigger__")
 
         return jsonify({
             "status": "ok",
-            "total_weight": impulse_store.get_pending_total_weight(),
-            "threshold": impulse_store._threshold,
             "confessions": len(impulse_store.get_pending_confessions()),
         })
+
+    async def clear_rejected(self):
+        """清空被拒缓冲区"""
+        store = self.plugin_context.get_component("impulse_store")
+        if not store:
+            return jsonify({"error": "触动存储不可用"}), 500
+        store._rejected_confessions = []
+        store._save_to_file()
+        return jsonify({"status": "ok"})

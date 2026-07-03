@@ -77,13 +77,14 @@
       </v-alert>
 
       <v-card class="mb-4">
-        <v-card-title>
+        <v-card-title class="d-flex align-center flex-wrap ga-2">
           触动记录
-          <v-chip class="ml-2" size="small" :color="impulseTotalWeight >= impulseThreshold ? 'warning' : 'info'">
+          <v-chip size="small" :color="impulseTotalWeight >= impulseThreshold ? 'warning' : 'info'">
             权重 {{ impulseTotalWeight }} / {{ impulseThreshold }}
           </v-chip>
           <v-spacer />
-          <v-btn size="small" variant="tonal" color="warning" :loading="testing" @click="testTrigger">模拟触发自省</v-btn>
+          <v-btn size="small" variant="tonal" color="primary" :loading="testing" @click="testAddImpulses">注入模拟触动</v-btn>
+          <v-btn v-if="impulseTotalWeight >= impulseThreshold" size="small" variant="tonal" color="warning" :loading="introspecting" @click="testIntrospection">触发自省</v-btn>
         </v-card-title>
         <v-card-text>
           <v-list v-if="impulses.length" lines="two">
@@ -120,7 +121,11 @@
       </v-card>
 
       <v-card v-if="rejected.length" class="mb-4">
-        <v-card-title>被拒提案缓冲区（{{ rejected.length }} 条 · 30天自动清理）</v-card-title>
+        <v-card-title class="d-flex align-center">
+          被拒提案缓冲区（{{ rejected.length }} 条 · 30天自动清理）
+          <v-spacer />
+          <v-btn size="x-small" variant="text" color="error" :loading="clearing" @click="clearRejected">一键清空</v-btn>
+        </v-card-title>
         <v-card-text>
           <v-list lines="two">
             <v-list-item v-for="r in rejected" :key="r.id">
@@ -160,6 +165,8 @@ const rejected = ref<any[]>([])
 const impulseTotalWeight = ref(0)
 const impulseThreshold = ref(3.0)
 const testing = ref(false)
+const introspecting = ref(false)
+const clearing = ref(false)
 
 async function loadBeliefs() {
   try {
@@ -194,15 +201,42 @@ async function dismissConfession(id: string) {
   }
 }
 
-async function testTrigger() {
+async function testAddImpulses() {
   testing.value = true
   try {
     await apiPost('impulses/test-trigger', {})
     await loadImpulses()
   } catch (e) {
-    console.error('测试触发失败:', e)
+    console.error('注入触动失败:', e)
   } finally {
     testing.value = false
+  }
+}
+
+async function testIntrospection() {
+  introspecting.value = true
+  try {
+    const data: any = await apiPost('impulses/test-introspection', {})
+    if (data.error) {
+      console.error('自省失败:', data.error)
+    }
+    await loadImpulses()
+  } catch (e) {
+    console.error('触发自省失败:', e)
+  } finally {
+    introspecting.value = false
+  }
+}
+
+async function clearRejected() {
+  clearing.value = true
+  try {
+    await apiPost('impulses/clear-rejected', {})
+    rejected.value = []
+  } catch (e) {
+    console.error('清空失败:', e)
+  } finally {
+    clearing.value = false
   }
 }
 
