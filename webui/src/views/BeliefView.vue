@@ -1,11 +1,14 @@
 <template>
   <div>
-    <h2 class="text-h5 mb-4">核心信念</h2>
+    <h2 class="text-h5 mb-4">核心信念 & 自省</h2>
 
-    <v-alert type="info" variant="tonal" class="mb-4" density="compact">
-      核心信念是 OC 在成长中形成的固定认知，会注入到每次对话中引导行为。
-      可通过 WebUI 或管理员对话指令管理。
-    </v-alert>
+    <v-tabs v-model="tab" class="mb-4">
+      <v-tab value="beliefs">核心信念</v-tab>
+      <v-tab value="impulses">
+        触动与自省
+        <v-badge v-if="impulseTotalWeight > 0" :content="impulseTotalWeight" color="warning" inline class="ml-2" />
+      </v-tab>
+    </v-tabs>
 
     <v-row v-if="loading">
       <v-col cols="12" class="text-center">
@@ -13,21 +16,18 @@
       </v-col>
     </v-row>
 
-    <template v-else>
+    <!-- 核心信念 Tab -->
+    <template v-if="tab === 'beliefs'">
       <v-card class="mb-4">
         <v-card-title class="d-flex align-center">
           信念列表（{{ beliefs.length }} / 20 条上限）
           <v-spacer />
-          <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="showAddDialog = true">
-            新增
-          </v-btn>
+          <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="showAddDialog = true">新增</v-btn>
         </v-card-title>
         <v-card-text>
           <v-list v-if="beliefs.length" lines="two">
             <v-list-item v-for="belief in beliefs" :key="belief.id">
-              <template #prepend>
-                <v-icon color="primary">mdi-heart</v-icon>
-              </template>
+              <template #prepend><v-icon color="primary">mdi-heart</v-icon></template>
               <v-list-item-title>{{ belief.content }}</v-list-item-title>
               <v-list-item-subtitle>
                 {{ belief.origin || '未知来源' }}
@@ -39,42 +39,28 @@
               </template>
             </v-list-item>
           </v-list>
-          <v-alert v-else type="info" variant="tonal">
-            暂无核心信念。可以通过「新增」按钮或让管理员在对话中说「你以后跟不熟的人说话简短一点」来添加。
-          </v-alert>
+          <v-alert v-else type="info" variant="tonal">暂无核心信念</v-alert>
         </v-card-text>
       </v-card>
 
-      <!-- 新增/编辑对话框 -->
       <v-dialog v-model="showAddDialog" max-width="500">
         <v-card>
           <v-card-title>{{ editingBelief ? '编辑信念' : '新增核心信念' }}</v-card-title>
           <v-card-text>
-            <v-textarea
-              v-model="formContent"
-              label="信念内容"
-              rows="3"
-              auto-grow
-              variant="outlined"
-            />
+            <v-textarea v-model="formContent" label="信念内容" rows="3" auto-grow variant="outlined" />
           </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" @click="closeDialog">取消</v-btn>
-            <v-btn color="primary" :disabled="!formContent.trim()" @click="saveBelief">
-              {{ editingBelief ? '保存' : '添加' }}
-            </v-btn>
+            <v-btn color="primary" :disabled="!formContent.trim()" @click="saveBelief">{{ editingBelief ? '保存' : '添加' }}</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
-      <!-- 删除确认 -->
       <v-dialog v-model="showDeleteDialog" max-width="400">
         <v-card>
           <v-card-title>确认删除</v-card-title>
-          <v-card-text>
-            确定要删除信念「{{ deletingBelief?.content }}」吗？
-          </v-card-text>
+          <v-card-text>确定要删除信念「{{ deletingBelief?.content }}」吗？</v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" @click="showDeleteDialog = false">取消</v-btn>
@@ -83,15 +69,64 @@
         </v-card>
       </v-dialog>
     </template>
+
+    <!-- 触动与自省 Tab -->
+    <template v-if="tab === 'impulses'">
+      <v-alert type="info" variant="tonal" class="mb-4" density="compact">
+        触动是 OC 在对话中感知到的与自身信念不一致的信息。积累权重达到阈值后会触发自省生成提案。
+      </v-alert>
+
+      <v-card class="mb-4">
+        <v-card-title>
+          触动记录
+          <v-chip class="ml-2" size="small" :color="impulseTotalWeight >= impulseThreshold ? 'warning' : 'info'">
+            权重 {{ impulseTotalWeight }} / {{ impulseThreshold }}
+          </v-chip>
+        </v-card-title>
+        <v-card-text>
+          <v-list v-if="impulses.length" lines="two">
+            <v-list-item v-for="imp in impulses" :key="imp.id">
+              <v-list-item-title>{{ imp.content }}</v-list-item-title>
+              <v-list-item-subtitle>
+                权重 {{ imp.trust_weight }}
+                <span v-if="imp.direction"> | 方向: {{ imp.direction }}</span>
+                <span v-if="imp.created_at"> | {{ formatTime(imp.created_at) }}</span>
+              </v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+          <v-alert v-else type="info" variant="tonal">暂无触动记录。触动会从反思中自动产生。</v-alert>
+        </v-card-text>
+      </v-card>
+
+      <v-card v-if="confessions.length" class="mb-4">
+        <v-card-title>待自白提案（{{ confessions.length }}）</v-card-title>
+        <v-card-text>
+          <v-list lines="three">
+            <v-list-item v-for="conf in confessions" :key="conf.id">
+              <template #prepend><v-icon :color="conf.confidence >= 0.7 ? 'success' : 'warning'">mdi-lightbulb</v-icon></template>
+              <v-list-item-title>{{ conf.proposal }}</v-list-item-title>
+              <v-list-item-subtitle>
+                确信度 {{ conf.confidence }}
+                <span v-if="conf.suggested_belief_text"> | 建议: {{ conf.suggested_belief_text }}</span>
+              </v-list-item-subtitle>
+              <template #append>
+                <v-btn icon="mdi-close" size="small" variant="text" color="error" @click="dismissConfession(conf.id)" />
+              </template>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+      </v-card>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useBridge } from '@/composables/useBridge'
 
 const { apiGet, apiPost } = useBridge()
 
+const tab = ref('beliefs')
 const loading = ref(true)
 const beliefs = ref<any[]>([])
 const showAddDialog = ref(false)
@@ -99,6 +134,11 @@ const showDeleteDialog = ref(false)
 const editingBelief = ref<any>(null)
 const deletingBelief = ref<any>(null)
 const formContent = ref('')
+
+const impulses = ref<any[]>([])
+const confessions = ref<any[]>([])
+const impulseTotalWeight = ref(0)
+const impulseThreshold = ref(3.0)
 
 async function loadBeliefs() {
   try {
@@ -110,6 +150,31 @@ async function loadBeliefs() {
     loading.value = false
   }
 }
+
+async function loadImpulses() {
+  try {
+    const data: any = await apiGet('impulses')
+    impulses.value = data.impulses || []
+    confessions.value = data.confessions || []
+    impulseTotalWeight.value = data.total_weight || 0
+    impulseThreshold.value = data.threshold || 3.0
+  } catch (e) {
+    console.error('加载触动记录失败:', e)
+  }
+}
+
+async function dismissConfession(id: string) {
+  try {
+    await apiPost('impulses/dismiss', { confession_id: id })
+    await loadImpulses()
+  } catch (e) {
+    console.error('忽略提案失败:', e)
+  }
+}
+
+watch(tab, (val) => {
+  if (val === 'impulses') loadImpulses()
+})
 
 function openEdit(belief: any) {
   editingBelief.value = belief
@@ -126,7 +191,6 @@ function closeDialog() {
 async function saveBelief() {
   const content = formContent.value.trim()
   if (!content) return
-
   try {
     if (editingBelief.value) {
       await apiPost('beliefs/modify', { belief_id: editingBelief.value.id, content })
@@ -135,9 +199,7 @@ async function saveBelief() {
     }
     closeDialog()
     await loadBeliefs()
-  } catch (e) {
-    console.error('保存信念失败:', e)
-  }
+  } catch (e) { console.error('保存信念失败:', e) }
 }
 
 function confirmDelete(belief: any) {
@@ -152,9 +214,7 @@ async function deleteBelief() {
     showDeleteDialog.value = false
     deletingBelief.value = null
     await loadBeliefs()
-  } catch (e) {
-    console.error('删除信念失败:', e)
-  }
+  } catch (e) { console.error('删除信念失败:', e) }
 }
 
 function formatTime(ts: number): string {

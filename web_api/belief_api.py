@@ -86,3 +86,31 @@ class BeliefAPI:
 
         store.remove_belief(belief_id)
         return jsonify({"status": "ok", "id": belief_id})
+
+    async def list_impulses(self):
+        store = self.plugin_context.get_component("impulse_store")
+        if not store:
+            return jsonify({"impulses": [], "confessions": [], "total_weight": 0, "threshold": 0})
+
+        return jsonify({
+            "impulses": store.get_pending_impulses(),
+            "confessions": store.get_pending_confessions(),
+            "total_weight": store.get_pending_total_weight(),
+            "threshold": store._threshold,
+        })
+
+    async def dismiss_confession(self):
+        store = self.plugin_context.get_component("impulse_store")
+        if not store:
+            return jsonify({"error": "触动存储不可用"}), 500
+
+        data = await request.get_json()
+        if not data:
+            return jsonify({"error": "缺少请求体"}), 400
+
+        confession_id = str(data.get("confession_id", "")).strip()
+        if not confession_id:
+            return jsonify({"error": "confession_id 不能为空"}), 400
+
+        store.dismiss_confession(confession_id)
+        return jsonify({"status": "ok", "id": confession_id})

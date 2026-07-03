@@ -1005,8 +1005,7 @@ class DeepMind:
                 self.logger.info(f"[反思调度] 完成 session={session_id}")
         return bool(success)
 
-    @staticmethod
-    def _build_strategy_analysis_prompt(reflection_input: ReflectionInput) -> str:
+    def _build_strategy_analysis_prompt(self, reflection_input: ReflectionInput) -> str:
         chat_records = getattr(reflection_input, "chat_records", []) or []
         sender_ids = set()
         for record in chat_records:
@@ -1019,15 +1018,33 @@ class DeepMind:
         if not sender_ids:
             return ""
         user_list = "、".join(sorted(sender_ids))
+
+        belief_hint = ""
+        belief_store = self.plugin_context.get_component("belief_store")
+        if belief_store:
+            active = belief_store.get_active_beliefs()
+            if active:
+                lines = ["\n你当前的核心信念："]
+                for b in active[:5]:
+                    lines.append(f"- {b['content']}")
+                belief_hint = "\n".join(lines)
+
         return (
             "\n\n---\n"
             "## 相处策略分析（可选）\n"
             f"本轮对话参与的用户: {user_list}\n"
             "基于以上聊天内容，判断你是否需要调整与这些用户的相处方式。\n"
-            "不需要则输出空数组，不需要分析则不影响原有输出。\n"
+            "不需要则输出空数组。\n"
             "在 feedback_data 同级追加 strategies 字段:\n"
             '"strategies": [ {"user_id": "...", "strategy": "一句话策略"} ]\n'
-            "只写一句，不要冗长。"
+            "只写一句，不要冗长。\n"
+            "\n"
+            "## 信念摩擦检测（可选）\n"
+            f"{belief_hint}"
+            "如果本轮对话中出现了与你的核心信念不一致、或有矛盾的信息（比如用户反馈了与你信念冲突的观点），\n"
+            "在 feedback_data 同级追加 impulses 字段，每条记录包含 content（摩擦内容）、trust_weight（信任度 0~1）。\n"
+            "没有摩擦则输出空数组。\n"
+            '"impulses": [ {"content": "...", "direction": "...", "trust_weight": 0.5} ]\n'
         )
 
     async def _auto_update_strategies_and_intimacy(
@@ -1091,6 +1108,70 @@ class DeepMind:
                     )
         except Exception as e:
             self.logger.debug(f"[亲密度] 自动更新失败（已忽略） session={session_id}: {e}")
+
+    async def _try_self_introspection(self, session_id: str):
+        impulse_store = self.plugin_context.get_component("impulse_store")
+        if not impulse_store or not impulse_store.is_threshold_reached():
+            return
+
+        pending = impulse_store.get_pending_impulses()
+        belief_store = self.plugin_context.get_component("belief_store")
+        beliefs = belief_store.get_active_beliefs() if belief_store else []
+
+        if not pending or not beliefs:
+            return
+
+        self.logger.info(
+            f"[自省] 触发 session={session_id} "
+            f"pending_impulses={len(pending)} total_weight={impulse_store.get_pending_total_weight()}"
+        )
+
+        try:
+            provider = self.context.get_provider_by_id(self.provider_id)
+            if not provider:
+                self.logger.warning("[自省] 无可用 LLM 提供商，跳过")
+                return
+
+            impulse_text = "\n".join(
+                f"- [权重{p.get('trust_weight', 0)}] {p.get('content', '')}"
+                for p in pending[:10]
+            )
+            belief_text = "\n".join(f"- {b.get('content', '')}" for b in beliefs[:5])
+
+            prompt = (
+                "你现在对自己的核心信念进行自省。\n"
+                "以下是近期积累的触动记录（对话中与你的信念产生摩擦的信息）：\n"
+                f"{impulse_text}\n\n"
+                "你当前的核心信念：\n"
+                f"{belief_text}\n\n"
+                "请分析是否需要调整你的核心信念，输出 JSON：\n"
+                '{"proposal": "自白提案", "reasoning": "分析推理", '
+                '"confidence": 0.72, "suggested_belief_text": "建议的新信念文本"}\n'
+                "confidence 表示你对自己提案的确信度 0~1\n"
+                "如果不需要调整，confidence 设为 0"
+            )
+
+            llm_response = await provider.text_chat(prompt)
+            response_text = llm_response.completion_text if llm_response else ""
+
+            full_json_data = self.json_parser.extract_json(response_text)
+            if isinstance(full_json_data, dict):
+                confidence = float(full_json_data.get("confidence", 0) or 0)
+                if confidence >= 0.4:
+                    impulse_store.add_confession(full_json_data)
+                    impulse_store.mark_processed()
+                    self.logger.info(
+                        f"[自省] 提案通过 session={session_id} "
+                        f"confidence={confidence} "
+                        f"proposal=「{str(full_json_data.get('proposal', ''))[:40]}」"
+                    )
+                else:
+                    self.logger.info(
+                        f"[自省] 提案丢弃 session={session_id} confidence={confidence}（低于阈值）"
+                    )
+                    impulse_store.mark_processed()
+        except Exception as e:
+            self.logger.warning(f"[自省] 执行失败 session={session_id}: {e}")
 
     async def _execute_async_analysis_task(
         self,
@@ -1250,6 +1331,41 @@ class DeepMind:
                             f"[策略自动] session={session_id} "
                             f"user={user_id} strategy=「{strategy_text[:30]}」"
                         )
+
+            # --- 触动积累 ---
+            impulses = full_json_data.get("impulses", [])
+            if impulses and isinstance(impulses, list):
+                impulse_store = self.plugin_context.get_component("impulse_store")
+                if impulse_store:
+                    chat_records_list = getattr(reflection_input, "chat_records", []) or []
+                    source_users = []
+                    for record in chat_records_list:
+                        sid = str(record.get("sender_id", "") or "").strip()
+                        rec_role = str(record.get("role", "") or "").strip().lower()
+                        if sid and rec_role == "user":
+                            source_users.append(sid)
+                    has_admin = str(getattr(reflection_input, "latest_user_text", "") or "").strip()
+                    for imp in impulses:
+                        if not isinstance(imp, dict):
+                            continue
+                        content = str(imp.get("content", "") or "").strip()
+                        if not content:
+                            continue
+                        weight = float(imp.get("trust_weight", 0.3))
+                        direction = str(imp.get("direction", "") or "").strip()
+                        impulse_store.add_impulse(
+                            content=content,
+                            direction=direction,
+                            trust_weight=min(1.0, max(0.1, weight)),
+                            source_users=source_users[:3],
+                        )
+                    self.logger.info(
+                        f"[触动积累] session={session_id} 新增 {len(impulses)} 条触动 "
+                        f"总权重={impulse_store.get_pending_total_weight()}"
+                    )
+
+            # --- 自省触发 ---
+            await self._try_self_introspection(session_id)
 
             # ID解析：使用映射表将LLM返回的短ID翻译回长ID
             memory_id_mapping = context_data.get("memory_id_mapping", {})

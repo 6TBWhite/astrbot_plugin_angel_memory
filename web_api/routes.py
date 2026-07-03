@@ -66,6 +66,9 @@ def register_all_routes(context: "Context", plugin_context) -> None:
         (f"/{PLUGIN_NAME}/beliefs", belief_api.add_belief, ["POST"], "新增核心信念"),
         (f"/{PLUGIN_NAME}/beliefs/modify", belief_api.modify_belief, ["POST"], "修改核心信念"),
         (f"/{PLUGIN_NAME}/beliefs/delete", belief_api.delete_belief, ["POST"], "删除核心信念"),
+        # 触动积累 & 自省
+        (f"/{PLUGIN_NAME}/impulses", belief_api.list_impulses, ["GET"], "触动与自省列表"),
+        (f"/{PLUGIN_NAME}/impulses/dismiss", belief_api.dismiss_confession, ["POST"], "忽略自省提案"),
     ]
 
     for path, handler, methods, description in routes:

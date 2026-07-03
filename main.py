@@ -120,6 +120,14 @@ class AngelMemoryPlugin(Star):
         except Exception as e:
             self.logger.warning(f"策略卡存储初始化失败（已跳过）: {e}")
 
+        try:
+            from .core.soul.impulse_store import ImpulseStore
+            self.impulse_store = ImpulseStore(data_dir=data_dir)
+            self.plugin_context.register_component("impulse_store", self.impulse_store)
+            self.logger.info("触动存储已初始化")
+        except Exception as e:
+            self.logger.warning(f"触动存储初始化失败（已跳过）: {e}")
+
         # 4. 初始化插件管理器（极速启动）- 只传递PluginContext
         self.plugin_manager = PluginManager(self.plugin_context)
 
