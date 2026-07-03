@@ -1041,10 +1041,15 @@ class DeepMind:
             chat_records = getattr(reflection_input, "chat_records", []) or []
             sender_stats = {}
             for record in chat_records:
+                role = str(record.get("role", "") or "").strip().lower()
+                if role != "user":
+                    continue
                 sender_id = str(record.get("sender_id", "") or "").strip()
                 sender_name = str(record.get("sender_name", "") or "").strip()
                 key = sender_id or sender_name
                 if not key:
+                    continue
+                if key in ("assistant", "unknown", "Unknown"):
                     continue
                 if key not in sender_stats:
                     sender_stats[key] = {"rounds": 0, "chars": 0, "name": sender_name or sender_id}
