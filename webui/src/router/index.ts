@@ -33,7 +33,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/beliefs',
     name: 'beliefs',
     component: BeliefView,
-    meta: { title: '核心信念', icon: 'mdi-heart' },
+    meta: { title: '核心信念 & 自省', icon: 'mdi-heart-pulse' },
   },
   {
     path: '/tags',
